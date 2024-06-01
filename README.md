@@ -1,11 +1,20 @@
+## This fork
+
+The pager plugin was modified to integrate with i3. On multi monitor
+setups it shows only the workspaces pinned to each monitor. It also
+changes workspace names to those from i3.
+
+---
+
 [![License](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://gitlab.xfce.org/xfce/xfce4-panel/-/blob/master/COPYING)
 
 # xfce4-panel
 
+## Original contents:
 
-The Xfce Panel is part of the Xfce Desktop Environment and features 
-application launchers, panel menus, a workspace switcher and more. Many 
-aspects of the panel can be configured through the GUI, but also by GTK+ 
+The Xfce Panel is part of the Xfce Desktop Environment and features
+application launchers, panel menus, a workspace switcher and more. Many
+aspects of the panel can be configured through the GUI, but also by GTK+
 style properties and hidden Xfconf settings.
 
 ----
@@ -30,7 +39,7 @@ See [NEWS](https://gitlab.xfce.org/xfce/xfce4-panel/-/blob/master/NEWS) for deta
 
 ### Installation
 
-From source: 
+From source:
 
     % cd xfce4-panel
     % ./autogen.sh

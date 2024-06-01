@@ -290,7 +290,13 @@ pager_buttons_button_press_event (GtkWidget      *button,
   return FALSE;
 }
 
-
+struct i3_workspace {
+  int id;
+  char name[32];
+  char output[32];
+  gboolean urgent;
+};
+#define MAX_WORKSPACES 20
 
 static gboolean
 pager_buttons_rebuild_idle (gpointer user_data)
@@ -377,6 +383,33 @@ pager_buttons_rebuild_idle (gpointer user_data)
 
   panel_plugin = gtk_widget_get_ancestor (GTK_WIDGET (pager), XFCE_TYPE_PANEL_PLUGIN);
 
+  GdkWindow *window = gtk_widget_get_window(panel_plugin);
+  GdkDisplay *display = gdk_window_get_display(window);
+  GdkMonitor *monitor = gdk_display_get_monitor_at_window(display, window);
+  const gchar *monitor_name = gdk_monitor_get_model(monitor);
+  // fprintf(stderr, "panel %p, window=%p name=%s\n,", pager->wnck_screen, window, monitor_name);
+
+  FILE *fp = popen("i3-msg -t get_workspaces | jq -c '.[] | [.num, .name, .output, .urgent]'", "r");
+  struct i3_workspace i3workspaces[MAX_WORKSPACES] = {};
+
+  int idx = 0;
+  char * line = NULL;
+  size_t len = 0;
+  ssize_t read;
+  while ((read = getline(&line, &len, fp)) != -1) {
+    if (idx >= MAX_WORKSPACES) {
+      break;
+    }
+    struct i3_workspace *i3ws = &i3workspaces[idx++];
+    char urgent[32];
+    sscanf(line, "[ %d , \" %63[^\"] \",\" %63[^\"] \", %63[^]] ]", &i3ws->id, i3ws->name, i3ws->output, urgent);
+    i3ws->urgent = strcmp(urgent, "true") == 0;
+    // printf("id=%d, name=%s, output=%s, urgent=%d\n", i3ws->id, i3ws->name, i3ws->output, i3ws->urgent);
+  }
+
+  pclose(fp);
+  free(line);
+
   if (G_UNLIKELY (viewport_mode))
     {
       panel_return_val_if_fail (WNCK_IS_WORKSPACE (workspace), FALSE);
@@ -446,8 +479,10 @@ pager_buttons_rebuild_idle (gpointer user_data)
 
           label = gtk_label_new (NULL);
           g_object_set_data (G_OBJECT (label), "numbering", GINT_TO_POINTER (pager->numbering));
-          g_signal_connect_object (G_OBJECT (workspace), "name-changed",
-              G_CALLBACK (pager_buttons_workspace_button_label), label, 0);
+          //commented-out to prevent xfsettingsd from changing the names
+          //g_signal_connect_object (G_OBJECT (workspace), "name-changed",
+          //    G_CALLBACK (pager_buttons_workspace_button_label), label, 0);
+
           pager_buttons_workspace_button_label (workspace, label);
           gtk_label_set_angle (GTK_LABEL (label),
               pager->orientation == GTK_ORIENTATION_HORIZONTAL ? 0 : 270);
@@ -455,6 +490,20 @@ pager_buttons_rebuild_idle (gpointer user_data)
           gtk_widget_show (label);
 
           pager->buttons = g_slist_prepend (pager->buttons, button);
+
+          gboolean do_show = FALSE;
+          int workspace_no = wnck_workspace_get_number (workspace);
+          if (workspace_no >= 0 && workspace_no < MAX_WORKSPACES) {
+            struct i3_workspace *i3ws = &i3workspaces[workspace_no];
+            if (strcmp(i3ws->output, monitor_name) == 0) {
+              gtk_label_set_text (GTK_LABEL (label), i3ws->name);
+              do_show = TRUE;
+            }
+          }
+
+          if (!do_show) {
+            continue;
+          }
 
           if (pager->orientation == GTK_ORIENTATION_HORIZONTAL)
             {
